@@ -5,7 +5,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"reflect"
 	"strings"
-	"unicode"
 )
 
 var cache = make(map[any]string)
@@ -49,7 +48,7 @@ func register(objVal reflect.Value, prefix ...string) {
 func getTagByStructField(structField reflect.StructField) string {
 	bsonTag := structField.Tag.Get("bson")
 	if bsonTag == "" {
-		return lowerCamelCase(structField.Name)
+		return structField.Name
 	}
 	if bsonTag == "-" {
 		return ""
@@ -59,14 +58,4 @@ func getTagByStructField(structField reflect.StructField) string {
 		return ""
 	}
 	return strings.Split(bsonTag, ",")[0]
-}
-
-// lowerCamelCase 将字符串转换为小写开头的驼峰形式
-func lowerCamelCase(s string) string {
-	if s == "" {
-		return ""
-	}
-	runes := []rune(s)
-	runes[0] = unicode.ToLower(runes[0])
-	return string(runes)
 }
