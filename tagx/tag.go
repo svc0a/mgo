@@ -1,6 +1,7 @@
 package tagx
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/svc0a/reflect2"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
 type TagI interface {
@@ -180,12 +182,90 @@ func (i *tagI) scanFile(filePath string) error {
 //		Balance_Balance string
 //	}{ID: "_id", Balance: "balance", Balance_Balance: "balance.balance"}
 func (i *tagI) prepareContent(in fileObject) error {
+	type TplField struct {
+		Key string
+		Val string
+	}
+	type TplObject struct {
+		Name   string
+		Fields []TplField
+	}
+	type TplModel struct {
+		Pkg     string
+		Objects []TplObject
+	}
 
+	objs := []TplObject{}
+	// 遍历对象并构建 objs
+	for _, v := range in.objects {
+		tplObject := TplObject{
+			Name:   v.name,
+			Fields: []TplField{},
+		}
+		for k1, v1 := range v.fields {
+			tplObject.Fields = append(tplObject.Fields, TplField{
+				Key: k1,
+				Val: v1,
+			})
+		}
+		objs = append(objs, tplObject)
+	}
+
+	// 定义模板内容
+	tmpl := `package {{ .Pkg }}
+
+    {{ range .Objects }}
+		var {{ .Name }}Fields = struct {
+			{{ range .Fields }}
+				{{ .Key }}              string
+			{{ end }}
+			Balance         string
+			Balance_Balance string
+		}{
+			{{ range .Fields }}
+				{{ .Key }}: 	"{{ .Val }}",
+			{{ end }}
+			ID: 	"_id",
+			Balance: "balance",
+			Balance_Balance: "balance.balance",
+		}
+    {{ end }}
+}
+`
+
+	// 创建模板
+	t, err := template.New("v1File").Parse(tmpl)
+	if err != nil {
+		return fmt.Errorf("解析模板时出错: %w", err)
+	}
+	// 定义数据结构
+	data := TplModel{
+		Pkg:     in.pkg,
+		Objects: objs,
+	}
+
+	buf := new(bytes.Buffer)
+	if err := t.Execute(buf, data); err != nil {
+		return fmt.Errorf("渲染模板时出错: %w", err)
+	}
+	f := i.fileObjects[in.dir]
+	f.content = buf.String()
+	i.fileObjects[in.dir] = f
 	return nil
 }
 
 func (i *tagI) Generate() error {
+	for _, f := range i.fileObjects {
+		err := i.generate(f)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (i *tagI) generate(in fileObject) error {
+
 }
 
 func (i *tagI) prepareFields(v2 object) {
