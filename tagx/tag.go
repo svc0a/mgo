@@ -2,7 +2,6 @@ package tagx
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"go/ast"
@@ -16,6 +15,7 @@ import (
 )
 
 type TagI interface {
+	WithModel(in ...any) TagI
 	Generate() error
 }
 
@@ -44,7 +44,7 @@ type tagI struct {
 	v1InitFile  generatedFile
 }
 
-func GenerateV1(dirPath string) (TagI, error) {
+func NewGenerator(dirPath string) TagI {
 	i := &tagI{
 		dirPath:     dirPath,
 		files:       []string{},
@@ -52,42 +52,39 @@ func GenerateV1(dirPath string) (TagI, error) {
 	}
 	err := i.scanDir()
 	if err != nil {
-		return nil, err
+		logrus.Fatal(err)
+		return nil
 	}
 	if len(i.files) == 0 {
-		return nil, errors.New("tagx: no files found")
+		logrus.Fatal("no files found")
+		return nil
 	}
 	for _, filePath := range i.files {
 		err1 := i.scanFile(filePath)
 		if err1 != nil {
-			return nil, err1
+			logrus.Fatal(err1)
+			return nil
 		}
 	}
 	for path, fileObject1 := range i.fileObjects {
 		err1 := i.prepareV1FileContent(path, fileObject1)
 		if err1 != nil {
-			return nil, err1
+			logrus.Fatal(err1)
+			return nil
 		}
 	}
 	for _, fileObject1 := range i.fileObjects {
 		err1 := i.writeToFile(fileObject1.v1files.path, fileObject1.v1files.content)
 		if err1 != nil {
-			return nil, err1
+			logrus.Fatal(err1)
+			return nil
 		}
 	}
-	{
-		err1 := i.prepareV1InitFileContent()
-		if err1 != nil {
-			return nil, err1
-		}
-	}
-	{
-		err1 := i.writeToFile(i.v1InitFile.path, i.v1InitFile.content)
-		if err1 != nil {
-			return nil, err1
-		}
-	}
-	return i, nil
+	return i
+}
+
+func (i *tagI) WithModel(in ...any) TagI {
+	return i
 }
 
 func (i *tagI) scanDir() error {
