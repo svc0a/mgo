@@ -6,6 +6,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/svc0a/reflect2"
 	"go/ast"
+	"go/format"
 	"go/parser"
 	"go/token"
 	"log"
@@ -214,23 +215,17 @@ func (i *tagI) prepareContent(in fileObject) error {
 	// 定义模板内容
 	tmpl := `package {{ .Pkg }}
 
-    {{ range .Objects }}
-		var {{ .Name }}Fields = struct {
-			{{ range .Fields }}
-				{{ .Key }}              string
-			{{ end }}
-			Balance         string
-			Balance_Balance string
-		}{
-			{{ range .Fields }}
-				{{ .Key }}: 	"{{ .Val }}",
-			{{ end }}
-			ID: 	"_id",
-			Balance: "balance",
-			Balance_Balance: "balance.balance",
-		}
-    {{ end }}
+{{- range .Objects }}
+var {{ .Name }}Fields = struct {
+	{{- range .Fields }}
+		{{ .Key }}              string
+	{{- end }}
+}{
+	{{- range .Fields }}
+		{{ .Key }}: 	"{{ .Val }}",
+	{{- end }}
 }
+{{- end }}
 `
 
 	// 创建模板
@@ -248,8 +243,15 @@ func (i *tagI) prepareContent(in fileObject) error {
 	if err := t.Execute(buf, data); err != nil {
 		return fmt.Errorf("渲染模板时出错: %w", err)
 	}
+
+	// 使用 go/format 包对生成的代码进行格式化
+	formattedCode, err := format.Source(buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("格式化代码时出错: %w", err)
+	}
+
 	f := i.fileObjects[in.dir]
-	f.content = buf.String()
+	f.content = string(formattedCode)
 	i.fileObjects[in.dir] = f
 	return nil
 }
@@ -265,7 +267,20 @@ func (i *tagI) Generate() error {
 }
 
 func (i *tagI) generate(in fileObject) error {
+	filename1 := filepath.Join(in.dir, "mgo.gen.go")
+	file, err := os.Create(filename1)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
+	_, err = file.WriteString(in.content)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Code generated and saved to %s\n", filename1)
+	return nil
 }
 
 func (i *tagI) prepareFields(v2 object) {

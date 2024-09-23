@@ -2,6 +2,10 @@ package gen
 
 import "go.mongodb.org/mongo-driver/bson"
 
+func main() {
+
+}
+
 func Query() *query {
 	return &query{
 		filter: bson.M{},
