@@ -6,7 +6,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	tagI1, err := Define("../")
+	tagI1, err := GenerateV1("../")
 	if err != nil {
 		log.Fatal(err)
 		return

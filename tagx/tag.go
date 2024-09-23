@@ -1,10 +1,10 @@
 package tagx
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
-	"github.com/svc0a/reflect2"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 )
 
 type TagI interface {
@@ -19,24 +20,35 @@ type TagI interface {
 }
 
 type object struct {
-	name   string
-	file   string
-	types  reflect2.Type
-	code   string
-	fields map[string]*ast.Field
+	name string
+	pkg  string
+}
+
+type generatedFile struct {
+	path    string
+	content string
+}
+
+type fileObject struct {
+	path    string
+	pkg     string
+	objects map[string]*object
+	v1files generatedFile
+	v2files generatedFile
 }
 
 type tagI struct {
-	dirPath string
-	files   []string
-	objects map[string]object // map[objectName]object
+	dirPath     string
+	files       []string
+	fileObjects map[string]fileObject
+	v1InitFile  generatedFile
 }
 
-func Define(dirPath string) (TagI, error) {
+func GenerateV1(dirPath string) (TagI, error) {
 	i := &tagI{
-		dirPath: dirPath,
-		files:   []string{},
-		objects: map[string]object{},
+		dirPath:     dirPath,
+		files:       []string{},
+		fileObjects: map[string]fileObject{},
 	}
 	err := i.scanDir()
 	if err != nil {
@@ -51,10 +63,28 @@ func Define(dirPath string) (TagI, error) {
 			return nil, err1
 		}
 	}
-	for _, o := range i.objects {
-		err := i.registerModel(o)
-		if err != nil {
-			return nil, err
+	for path, fileObject1 := range i.fileObjects {
+		err1 := i.prepareV1FileContent(path, fileObject1)
+		if err1 != nil {
+			return nil, err1
+		}
+	}
+	for _, fileObject1 := range i.fileObjects {
+		err1 := i.writeToFile(fileObject1.v1files.path, fileObject1.v1files.content)
+		if err1 != nil {
+			return nil, err1
+		}
+	}
+	{
+		err1 := i.prepareV1InitFileContent()
+		if err1 != nil {
+			return nil, err1
+		}
+	}
+	{
+		err1 := i.writeToFile(i.v1InitFile.path, i.v1InitFile.content)
+		if err1 != nil {
+			return nil, err1
 		}
 	}
 	return i, nil
@@ -83,6 +113,11 @@ func (i *tagI) scanFile(filePath string) error {
 		log.Fatal(err)
 	}
 	pkgName := node.Name.Name
+	fileObject1 := fileObject{
+		path:    filePath,
+		pkg:     pkgName,
+		objects: map[string]*object{},
+	}
 	// 遍历 AST，找到结构体及其关联注释
 	ast.Inspect(node, func(n ast.Node) bool {
 		// 检查是否为类型声明（包括结构体）
@@ -113,16 +148,18 @@ func (i *tagI) scanFile(filePath string) error {
 				if !isTag {
 					continue
 				}
-				objName := fmt.Sprintf("%s.%s", pkgName, typeSpec.Name.Name)
 				object1 := object{
-					name: objName,
-					file: filePath,
+					pkg:  pkgName,
+					name: typeSpec.Name.Name,
 				}
-				i.objects[objName] = object1
+				fileObject1.objects[object1.name] = &object1
 			}
 		}
 		return true
 	})
+	if len(fileObject1.objects) > 0 {
+		i.fileObjects[filePath] = fileObject1
+	}
 	return nil
 }
 
@@ -133,37 +170,137 @@ func (i *tagI) scanFile(filePath string) error {
 //		Balance         string
 //		Balance_Balance string
 //	}{ID: "_id", Balance: "balance", Balance_Balance: "balance.balance"}
-func (i *tagI) registerModel(in object) error {
+func (i *tagI) prepareV1FileContent(path string, in fileObject) error {
+	arr := []map[string]string{}
+	dir := filepath.Dir(path)
+	v1file := filepath.Join(dir, "mgo_generated_v1.go")
+	// 遍历对象并构建 arr
+	for _, v := range in.objects {
+		arr = append(arr, map[string]string{
+			"structName": v.name,
+		})
+	}
+
+	// 定义模板内容
+	tmpl := `package {{ .PackageName }}
+
+  {{ range .Objects }}
+	import "github.com/svc0a/mgo/tagx"
+    {{ end }}
+
+func init() {
+    {{ range .Objects }}
+    _ = tagx.DefineType[{{ .structName }}]()
+    {{ end }}
+}
+`
+
+	// 创建模板
+	t, err := template.New("v1File").Parse(tmpl)
+	if err != nil {
+		return fmt.Errorf("解析模板时出错: %w", err)
+	}
+	// 定义数据结构
+	data := struct {
+		PackageName string
+		Objects     []map[string]string
+	}{
+		PackageName: in.pkg,
+		Objects:     arr,
+	}
+
+	// 渲染模板并保存到变量
+	var generatedCode string
+	buf := new(bytes.Buffer)
+	if err := t.Execute(buf, data); err != nil {
+		return fmt.Errorf("渲染模板时出错: %w", err)
+	}
+
+	generatedCode = buf.String()
+	// 这里可以根据需要使用 generatedCode
+	in.v1files = generatedFile{
+		path:    v1file, // 或者给定一个临时路径
+		content: generatedCode,
+	}
+	// 更新文件对象
+	i.fileObjects[path] = in
 	return nil
 }
-
 func (i *tagI) Generate() error {
-	for _, o := range i.objects {
-		err := i.generate(o)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 func (i *tagI) generate(in object) error {
-	// 以追加模式打开文件
-	f, err := os.OpenFile(in.file, os.O_APPEND|os.O_WRONLY, 0644)
+	return nil
+}
+
+// writeToFile 函数用于将生成的代码写入文件
+func (i *tagI) writeToFile(filename string, content string) error {
+	file, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
-	defer func(f *os.File) {
-		err1 := f.Close()
-		if err1 != nil {
-			logrus.Error(err1)
+	defer func() {
+		if err := file.Close(); err != nil {
+			logrus.Error(err)
 		}
-	}(f)
-	// 写入代码
-	if _, err := f.WriteString(in.code); err != nil {
+	}()
+	_, err = file.WriteString(content)
+	if err != nil {
 		return err
 	}
+	fmt.Printf("Code generated and saved to %s\n", filename)
+	return nil
+}
 
-	logrus.WithField("file", in.file).Info("Code appended successfully.")
+func (i *tagI) prepareV1InitFileContent() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	arr := []map[string]string{}
+	// 遍历对象并构建 arr
+	for _, v := range i.fileObjects {
+		arr = append(arr, map[string]string{
+			"pkg": v.pkg,
+		})
+	}
+
+	// 定义模板内容
+	tmpl := `package main
+
+import "github.com/svc0a/mgo/tagx"
+
+func init() {
+    {{ range .Objects }}
+   {{ .pkg }}.InitMgo()
+    {{ end }}
+}
+`
+	// 创建模板
+	t, err := template.New("v1File").Parse(tmpl)
+	if err != nil {
+		return fmt.Errorf("解析模板时出错: %w", err)
+	}
+	// 定义数据结构
+	data := struct {
+		Objects []map[string]string
+	}{
+		Objects: arr,
+	}
+
+	// 渲染模板并保存到变量
+	var generatedCode string
+	buf := new(bytes.Buffer)
+	if err := t.Execute(buf, data); err != nil {
+		return fmt.Errorf("渲染模板时出错: %w", err)
+	}
+
+	generatedCode = buf.String()
+	// 这里可以根据需要使用 generatedCode
+	i.v1InitFile = generatedFile{
+		path:    exePath, // 或者给定一个临时路径
+		content: generatedCode,
+	}
 	return nil
 }
