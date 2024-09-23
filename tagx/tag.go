@@ -93,7 +93,7 @@ func (i *tagI) scanFile(filePath string) error {
 					continue
 				}
 				// 检查是否为结构体类型
-				_, isStruct := typeSpec.Type.(*ast.StructType)
+				structType, isStruct := typeSpec.Type.(*ast.StructType)
 				if !isStruct {
 					continue
 				}
@@ -117,10 +117,21 @@ func (i *tagI) scanFile(filePath string) error {
 					name: objName,
 					file: filePath,
 				}
-				t, err1 := reflect2.TypeByName(objName)
-				if err1 == nil {
-					object1.types = t
+				// 扫描字段，检查是否为组合字段
+				for _, field := range structType.Fields.List {
+					fieldType := fmt.Sprintf("%s", field.Type)
+					logrus.Info(fieldType)
+					// 检查字段类型是否是结构体（组合）
+					if _, ok := field.Type.(*ast.StructType); ok {
+						logrus.WithField("field", field.Names[0].Name).Info("Composite field found")
+					} else {
+						logrus.WithField("field", field.Names[0].Name).Info("Non-composite field found")
+					}
 				}
+				//t, err1 := reflect2.TypeByName(objName)
+				//if err1 == nil {
+				//	object1.types = t
+				//}
 				i.objects[objName] = object1
 			}
 		}
