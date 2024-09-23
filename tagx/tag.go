@@ -19,10 +19,11 @@ type TagI interface {
 }
 
 type object struct {
-	name  string
-	file  string
-	types reflect2.Type
-	code  string
+	name   string
+	file   string
+	types  reflect2.Type
+	code   string
+	fields map[string]*ast.Field
 }
 
 type tagI struct {
@@ -51,7 +52,7 @@ func Define(dirPath string) (TagI, error) {
 		}
 	}
 	for _, o := range i.objects {
-		err := i.prepareCode(o)
+		err := i.registerModel(o)
 		if err != nil {
 			return nil, err
 		}
@@ -117,10 +118,6 @@ func (i *tagI) scanFile(filePath string) error {
 					name: objName,
 					file: filePath,
 				}
-				t, err1 := reflect2.TypeByName(objName)
-				if err1 == nil {
-					object1.types = t
-				}
 				i.objects[objName] = object1
 			}
 		}
@@ -136,19 +133,7 @@ func (i *tagI) scanFile(filePath string) error {
 //		Balance         string
 //		Balance_Balance string
 //	}{ID: "_id", Balance: "balance", Balance_Balance: "balance.balance"}
-func (i *tagI) prepareCode(in object) error {
-	if in.types == nil {
-		return nil
-	}
-	m := defineByType(in.types).Export()
-	code := ""
-	{
-		for k, v := range m {
-			logrus.WithField("k", k).WithField("v", v).Info()
-		}
-	}
-	in.code = code
-	i.objects[in.name] = in
+func (i *tagI) registerModel(in object) error {
 	return nil
 }
 

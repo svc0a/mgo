@@ -2,6 +2,8 @@ package examples
 
 import (
 	"fmt"
+	"github.com/sirupsen/logrus"
+	"go.mongodb.org/mongo-driver/bson"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -10,6 +12,19 @@ import (
 	"path/filepath"
 	"testing"
 )
+
+func TestBson(t *testing.T) {
+	marshal, err := bson.Marshal(User{})
+	if err != nil {
+		return
+	}
+	m := map[string]any{}
+	err = bson.Unmarshal(marshal, &m)
+	if err != nil {
+		return
+	}
+	logrus.Info(m)
+}
 
 func TestUser(t *testing.T) {
 	projectDir := "." // 替换为你的项目目录

@@ -2,10 +2,11 @@ package tagx
 
 import (
 	"fmt"
-	"github.com/svc0a/reflect2"
 	"reflect"
 	"strings"
 )
+
+var cache = map[string]map[string]string{} // map[structName]map[fieldName]string{}
 
 type BsonTag interface {
 	Export() map[string]string
@@ -15,11 +16,13 @@ type bsonTag struct {
 	cache map[string]string
 }
 
-func defineByType(in reflect2.Type) BsonTag {
+func DefineType[T any]() BsonTag {
+	t := reflect.TypeFor[T]()
 	b := &bsonTag{
 		cache: map[string]string{},
 	}
-	b.register(in.Type1())
+	b.register(t)
+	cache[fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())] = b.Export()
 	return b
 }
 
