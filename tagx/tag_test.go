@@ -1,16 +1,14 @@
 package tagx
 
 import (
+	"github.com/svc0a/mgo/examples"
 	"log"
 	"testing"
 )
 
 func TestNew(t *testing.T) {
-	tagI1, err := Define("../")
-	if err != nil {
-		log.Fatal(err)
-		return
-	}
+	tagI1 := Define("../").WithModel(examples.Order{}).WithModel(examples.User{})
+	//tagI1 := Define("../").WithModel(examples.User{}).WithModel(examples.Order{})
 	//err = tagI.Generate()
 	//if err != nil {
 	//	logrus.Fatal(err)

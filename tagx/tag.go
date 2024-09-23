@@ -1,7 +1,6 @@
 package tagx
 
 import (
-	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/svc0a/reflect2"
@@ -15,48 +14,76 @@ import (
 )
 
 type TagI interface {
+	WithModel(model ...any) TagI
 	Generate() error
 }
 
+type fileObject struct {
+	dir     string
+	pkg     string
+	objects map[string]object // map[objectName]object
+	content string
+}
+
 type object struct {
-	name  string
-	file  string
-	types reflect2.Type
-	code  string
+	file   string
+	path   string
+	pkg    string
+	name   string
+	types  reflect2.Type
+	fields map[string]string
 }
 
 type tagI struct {
-	dirPath string
-	files   []string
-	objects map[string]object // map[objectName]object
+	dirPath     string
+	files       []string
+	fileObjects map[string]fileObject // map[dir]fileObject
+	failObjects []string
 }
 
-func Define(dirPath string) (TagI, error) {
+func Define(dirPath string) TagI {
 	i := &tagI{
-		dirPath: dirPath,
-		files:   []string{},
-		objects: map[string]object{},
+		dirPath:     dirPath,
+		files:       []string{},
+		fileObjects: map[string]fileObject{},
 	}
 	err := i.scanDir()
 	if err != nil {
-		return nil, err
+		logrus.Fatal(err)
+		return nil
 	}
 	if len(i.files) == 0 {
-		return nil, errors.New("tagx: no files found")
+		logrus.Fatal("tagx: no files found")
+		return nil
 	}
 	for _, filePath := range i.files {
 		err1 := i.scanFile(filePath)
 		if err1 != nil {
-			return nil, err1
+			logrus.Fatal(err1)
+			return nil
 		}
 	}
-	for _, o := range i.objects {
-		err := i.prepareCode(o)
-		if err != nil {
-			return nil, err
+	if len(i.failObjects) != 0 {
+		logrus.WithField("reminder", "please add model to generator").Fatal(strings.Join(i.failObjects, "."))
+		return nil
+	}
+	for _, v1 := range i.fileObjects {
+		for _, v2 := range v1.objects {
+			i.prepareFields(v2)
 		}
 	}
-	return i, nil
+	for _, o := range i.fileObjects {
+		err1 := i.prepareContent(o)
+		if err1 != nil {
+			logrus.Fatal(err1)
+			return nil
+		}
+	}
+	return i
+}
+
+func (i *tagI) WithModel(model ...any) TagI {
+	return i
 }
 
 func (i *tagI) scanDir() error {
@@ -82,14 +109,23 @@ func (i *tagI) scanFile(filePath string) error {
 		log.Fatal(err)
 	}
 	pkgName := node.Name.Name
+	dir := filepath.Dir(filePath)
+	fileObject1, ok := i.fileObjects[dir]
+	if !ok {
+		fileObject1 = fileObject{
+			dir:     dir,
+			pkg:     pkgName,
+			objects: map[string]object{},
+		}
+	}
 	// 遍历 AST，找到结构体及其关联注释
 	ast.Inspect(node, func(n ast.Node) bool {
 		// 检查是否为类型声明（包括结构体）
 		genDecl, ok := n.(*ast.GenDecl)
 		if ok && genDecl.Tok == token.TYPE {
 			for _, spec := range genDecl.Specs {
-				typeSpec, ok := spec.(*ast.TypeSpec)
-				if !ok {
+				typeSpec, ok1 := spec.(*ast.TypeSpec)
+				if !ok1 {
 					continue
 				}
 				// 检查是否为结构体类型
@@ -114,18 +150,25 @@ func (i *tagI) scanFile(filePath string) error {
 				}
 				objName := fmt.Sprintf("%s.%s", pkgName, typeSpec.Name.Name)
 				object1 := object{
-					name: objName,
 					file: filePath,
+					path: dir,
+					pkg:  pkgName,
+					name: typeSpec.Name.Name,
 				}
 				t, err1 := reflect2.TypeByName(objName)
 				if err1 == nil {
 					object1.types = t
+				} else {
+					i.failObjects = append(i.failObjects, fmt.Sprintf("WithModel(%s.%s{})", pkgName, typeSpec.Name.Name))
 				}
-				i.objects[objName] = object1
+				fileObject1.objects[object1.name] = object1
 			}
 		}
 		return true
 	})
+	if len(fileObject1.objects) > 0 {
+		i.fileObjects[dir] = fileObject1
+	}
 	return nil
 }
 
@@ -136,49 +179,17 @@ func (i *tagI) scanFile(filePath string) error {
 //		Balance         string
 //		Balance_Balance string
 //	}{ID: "_id", Balance: "balance", Balance_Balance: "balance.balance"}
-func (i *tagI) prepareCode(in object) error {
-	if in.types == nil {
-		return nil
-	}
-	m := defineByType(in.types).Export()
-	code := ""
-	{
-		for k, v := range m {
-			logrus.WithField("k", k).WithField("v", v).Info()
-		}
-	}
-	in.code = code
-	i.objects[in.name] = in
+func (i *tagI) prepareContent(in fileObject) error {
+
 	return nil
 }
 
 func (i *tagI) Generate() error {
-	for _, o := range i.objects {
-		err := i.generate(o)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
-func (i *tagI) generate(in object) error {
-	// 以追加模式打开文件
-	f, err := os.OpenFile(in.file, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return err
-	}
-	defer func(f *os.File) {
-		err1 := f.Close()
-		if err1 != nil {
-			logrus.Error(err1)
-		}
-	}(f)
-	// 写入代码
-	if _, err := f.WriteString(in.code); err != nil {
-		return err
-	}
-
-	logrus.WithField("file", in.file).Info("Code appended successfully.")
-	return nil
+func (i *tagI) prepareFields(v2 object) {
+	t := defineByType(v2.types)
+	v2.fields = t.Export()
+	i.fileObjects[v2.path].objects[v2.name] = v2
 }

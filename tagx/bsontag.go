@@ -33,9 +33,10 @@ func (b *bsonTag) register(objType reflect.Type, prefix ...string) {
 		}
 		k := fmt.Sprintf("%s%s", namePrefix1, objType.Field(i).Name)
 		v := fmt.Sprintf("%s%s", valPrefix1, b.getTagByStructField(objType.Field(i)))
-		b.cache[k] = v
 		if objType.Field(i).Type.Kind() == reflect.Struct {
-			b.register(objType.Field(i).Type, v)
+			b.register(objType.Field(i).Type, k)
+		} else {
+			b.cache[k] = v
 		}
 	}
 }
@@ -56,5 +57,10 @@ func (b *bsonTag) getTagByStructField(structField reflect.StructField) string {
 }
 
 func (b *bsonTag) Export() map[string]string {
+	for k, v := range b.cache {
+		if v == "" {
+			delete(b.cache, k)
+		}
+	}
 	return b.cache
 }

@@ -9,6 +9,7 @@ type User struct {
 	UsernameUpdateTimes int   `json:"userNameUpdateTimes" bson:"userNameUpdateTimes"`
 	Online              bool  `json:"online" bson:"online"`
 	VipLevel            int   `json:"vipLevel" bson:"vipLevel"`
+	Order               Order `json:"order" bson:"order"`
 }
 
 // fields @generated sql keys mapping1
@@ -22,9 +23,3 @@ type User struct {
 type Gender string
 
 // Order grewhwrehw
-
-// Order @generated sql keys mapping
-type Order struct {
-	types.Entity `bson:",inline"`
-	Amount       float64 `json:"amount" bson:"amount"`
-}
