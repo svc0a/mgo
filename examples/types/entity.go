@@ -7,7 +7,6 @@ type Entity struct {
 	Version   int64 `json:"version" bson:"version"`
 }
 
-// Entity1 @generated
 type Entity1 struct {
 	ID        int64 `json:"id" bson:"_id"`
 	CreatedAt int64 `json:"createdAt" bson:"createdAt"`

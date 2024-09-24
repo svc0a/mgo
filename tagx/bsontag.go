@@ -15,7 +15,7 @@ type bsonTag struct {
 	cache map[string]string
 }
 
-func defineByType(in reflect2.Type) BsonTag {
+func Define(in reflect2.Type) BsonTag {
 	b := &bsonTag{
 		cache: map[string]string{},
 	}
