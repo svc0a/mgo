@@ -9,60 +9,59 @@ type Order struct {
 	Amount       float64          `json:"amount" bson:"amount"` // gewgwegew
 }
 
+type Order2 struct {
+	types.Entity `bson:",inline"` // gewgwegew
+	Amount       float64          `json:"amount" bson:"amount"` // gewgwegew
+}
+
 // dsgergergergresdsdfds @mongoGenerated
 var orderFields = struct {
-	source    Order
-	ID        string
+	source  Order
+	Version string
+
 	Amount    string
+	ID        string
 	CreatedAt string
 	UpdatedAt string
-
-	Version string
-}{
-	ID: "OrderID", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version", Amount: "amount",
-}
+}{ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version", Amount: "amount"}
 
 // Entitsegewgwegewgewgwegwegy1Fields @mongoGenerated
 var Entity1Fields = struct {
-	source    types.Entity1
-	ID        string `json:"id" bson:"_id"`
-	CreatedAt string `json:"createdAt" bson:"createdAt"`
-	UpdatedAt string
+	source types.Entity1
+	ID     string
 
-	Version string
-}{ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version"}
+	CreatedAt string
+	UpdatedAt string
+	Version   string
+}{Version: "version", ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt"}
 
 // Entity1Fsdsefsdfdffffwegewgwgh4h43h3h43h43hields @mongoGenerated
 var Entity2Fields = struct {
 	source    types.Entity1
-	ID        string `json:"id" bson:"_id"`
-	CreatedAt string `json:"createdAt" bson:"createdAt"`
-	UpdatedAt string
+	CreatedAt string
 
-	Version string
-}{ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version"}
+	UpdatedAt string
+	Version   string
+	ID        string
+}{CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version", ID: "_id"}
 
 // ordesegwegweghwehweeghwegewgewgwesgewgerFields @mongoGenerated
 var order2Fields = struct {
 	source    Order
-	ID        string
-	Amount    string
 	UpdatedAt string
-	Version   string
 
+	Version   string
+	Amount    string
+	ID        string
 	CreatedAt string
-}{
-	ID: "OrderID", Amount: "amount", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version",
-}
+}{ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version", Amount: "amount"}
 
 // orderFfdbdhergefifhfhfhbefjcbcjdksihdields @mongoGenerated
 var order3Fields = struct {
 	source    Order
-	ID        string
+	Version   string
 	Amount    string
+	ID        string
 	CreatedAt string
 	UpdatedAt string
-	Version   string
-}{
-	ID: "OrderID", Amount: "amount", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version",
-}
+}{ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version", Amount: "amount"}

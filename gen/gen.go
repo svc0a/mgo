@@ -42,9 +42,7 @@ type variable struct {
 	name         string
 	comment      string
 	commentIndex int
-	codePos      token.Pos
-	commentPos   token.Pos
-	shift        token.Pos
+	codePos      token.Position
 }
 
 type fileObject struct {
@@ -192,7 +190,10 @@ func (g *genI) scanFile(filePath1 string) error {
 			variables: map[string]variable{},
 		}
 	}
-	commentIndex := 0
+	commentMap := map[token.Pos]int{}
+	for i, comment := range node.Comments {
+		commentMap[comment.List[0].Slash] = i
+	}
 	ast.Inspect(node, func(n ast.Node) bool {
 		genDecl, ok := n.(*ast.GenDecl)
 		if ok && genDecl.Tok == token.VAR {
@@ -255,9 +256,7 @@ func (g *genI) scanFile(filePath1 string) error {
 																source:       obj,
 																name:         valueSpec.Names[0].Name,
 																comment:      genDecl.Doc.List[0].Text,
-																codePos:      valueSpec.Pos(),
-																commentPos:   genDecl.Doc.List[0].Slash,
-																commentIndex: commentIndex,
+																commentIndex: commentMap[genDecl.Doc.List[0].Slash],
 															}
 														}
 													}
@@ -291,9 +290,7 @@ func (g *genI) scanFile(filePath1 string) error {
 																source:       obj,
 																name:         valueSpec.Names[0].Name,
 																comment:      genDecl.Doc.List[0].Text,
-																codePos:      valueSpec.Pos(),
-																commentPos:   genDecl.Doc.List[0].Slash,
-																commentIndex: commentIndex,
+																commentIndex: commentMap[genDecl.Doc.List[0].Slash],
 															}
 														}
 													}
@@ -308,7 +305,6 @@ func (g *genI) scanFile(filePath1 string) error {
 				}
 			}
 		}
-		commentIndex++
 		return true
 	})
 	if len(fileObject1.objects) > 0 {
@@ -449,7 +445,6 @@ func (g *genI) prepareContent(in fileObject) error {
 		return err
 	}
 	// 遍历 AST 并打印每个节点的位置信息
-	g.checkPosition(node, &in)
 	g.addFields(node, in.variables)
 	// 使用 bytes.Buffer 将内容写入内存
 	var buf bytes.Buffer
@@ -478,16 +473,12 @@ func (g *genI) prepareContent(in fileObject) error {
 	return nil
 }
 
-func (g *genI) checkPosition(node ast.Node, in *fileObject) {
+func (g *genI) checkPosition(fileSet1 *token.FileSet, node ast.Node, in *fileObject) {
 	// 遍历 AST 并打印每个节点的位置信息
 	ast.Inspect(node, func(n ast.Node) bool {
 		genDecl, ok := n.(*ast.GenDecl)
 		if ok && genDecl.Tok == token.VAR {
 			for _, spec := range genDecl.Specs {
-				isTag := false
-				if genDecl.Doc != nil {
-					isTag = strings.Contains(genDecl.Doc.List[0].Text, commentLabel)
-				}
 				isSource := false
 				valueSpec, ok1 := spec.(*ast.ValueSpec)
 				if !ok1 {
@@ -499,29 +490,27 @@ func (g *genI) checkPosition(node ast.Node, in *fileObject) {
 				}
 				for _, val := range valueSpec.Values {
 					compositeLit1, ok2 := val.(*ast.CompositeLit)
-					if ok2 {
-						type1 := compositeLit1.Type
-						structType1, ok3 := type1.(*ast.StructType)
-						if ok3 {
-							for _, field := range structType1.Fields.List {
-								for _, name1 := range field.Names {
-									if name1.Name == sourceKey {
-										isSource = true
-									}
-								}
+					if !ok2 {
+						continue
+					}
+					type1 := compositeLit1.Type
+					structType1, ok3 := type1.(*ast.StructType)
+					if !ok3 {
+						continue
+					}
+					for _, field := range structType1.Fields.List {
+						for _, name1 := range field.Names {
+							if name1.Name == sourceKey {
+								isSource = true
 							}
 						}
 					}
 				}
-				if isSource || isTag {
-					variable1.shift = genDecl.Pos() - variable1.codePos
-					variable1.codePos = genDecl.Pos()
-					if genDecl.Doc != nil {
-						variable1.commentPos = genDecl.Doc.List[0].Slash
-						variable1.comment = genDecl.Doc.List[0].Text
-					}
-					in.variables[valueSpec.Names[0].Name] = variable1
+				if !isSource {
+					continue
 				}
+				variable1.codePos = fileSet1.Position(genDecl.Pos())
+				in.variables[valueSpec.Names[0].Name] = variable1
 			}
 		}
 		return true
@@ -635,8 +624,8 @@ func (g *genI) prepareComment(b []byte, in fileObject) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	g.checkPosition(node, &in)
-	g.addComment(node, in.variables)
+	g.checkPosition(fileSet1, node, &in)
+	g.addComment(fileSet1, node, in.variables)
 	// 使用 bytes.Buffer 将内容写入内存
 	var buf bytes.Buffer
 	if err1 := printer.Fprint(&buf, fileSet1, node); err1 != nil {
@@ -671,18 +660,20 @@ func (g *genI) deleteInit(b []byte) ([]byte, error) {
 	return formattedCode, nil
 }
 
-func (g *genI) addComment(f *ast.File, variables map[string]variable) {
+func (g *genI) addComment(fileSet1 *token.FileSet, f *ast.File, variables map[string]variable) {
+	file := fileSet1.File(f.Pos()) // 获取文件对象
 	for k, comment := range f.Comments {
+		contains := strings.Contains(comment.List[0].Text, commentLabel)
+		if !contains {
+			continue
+		}
 		for _, v := range variables {
 			if v.commentIndex != k {
 				continue
 			}
-			comment.List[0].Slash = v.commentPos + v.shift + func() token.Pos {
-				if k == 0 {
-					return token.Pos(0)
-				}
-				return token.Pos(len(v.comment))
-			}()
+			// 使用 FileSet 的 PositionFor 方法来获取某一行的起始位置
+			pos := file.LineStart(v.codePos.Line - 1) // 获取第 `line` 行的起始位置 (Pos)
+			comment.List[0].Slash = pos
 			f.Comments[k] = comment
 		}
 	}
