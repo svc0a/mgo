@@ -5,8 +5,8 @@ import (
 )
 
 type Order struct {
-	types.Entity `bson:",inline"`
-	Amount       float64 `json:"amount" bson:"amount"`
+	types.Entity `bson:",inline"` // gewgwegew
+	Amount       float64          `json:"amount" bson:"amount"` // gewgwegew
 }
 
 // dsgergergergresdsdfds @mongoGenerated

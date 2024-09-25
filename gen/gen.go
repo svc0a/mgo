@@ -259,7 +259,6 @@ func (g *genI) scanFile(filePath1 string) error {
 																commentPos:   genDecl.Doc.List[0].Slash,
 																commentIndex: commentIndex,
 															}
-															commentIndex++
 														}
 													}
 												}
@@ -296,7 +295,6 @@ func (g *genI) scanFile(filePath1 string) error {
 																commentPos:   genDecl.Doc.List[0].Slash,
 																commentIndex: commentIndex,
 															}
-															commentIndex++
 														}
 													}
 												}
@@ -310,6 +308,7 @@ func (g *genI) scanFile(filePath1 string) error {
 				}
 			}
 		}
+		commentIndex++
 		return true
 	})
 	if len(fileObject1.objects) > 0 {
