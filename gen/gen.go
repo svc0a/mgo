@@ -24,7 +24,7 @@ import (
 
 const (
 	sourceKey     = "source"
-	commentLabel  = "@mongoGenerated"
+	commentLabel  = "@qlGenerated"
 	reflectImport = "github.com/svc0a/reflect2"
 )
 
@@ -82,7 +82,7 @@ type genI struct {
 	callerContent string
 }
 
-func Define(dirPath string) GenI {
+func Define(dirPath string, define tagx.Service) GenI {
 	i := &genI{
 		dirPath:     dirPath,
 		files:       []string{},
@@ -149,7 +149,7 @@ func Define(dirPath string) GenI {
 	}
 	{
 		for _, o := range i.fileObjects {
-			err1 := i.prepareContent(o)
+			err1 := i.prepareContent(o, define)
 			if err1 != nil {
 				logrus.Fatal(err1)
 				return nil
@@ -317,24 +317,15 @@ func (g *genI) prepareRegisterContent(in fileObject) error {
 	if in.objects == nil || len(in.objects) == 0 {
 		return nil
 	}
-	fileSet1 := token.NewFileSet()
-	node, err := parser.ParseFile(fileSet1, in.path, nil, parser.AllErrors|parser.ParseComments)
-	if err != nil {
-		return err
-	}
 	fields := []string{}
 	for _, obj := range in.objects {
 		fields = append(fields, obj.callerName)
 	}
-	g.addDynamicInitFunction(fileSet1, node, fields)
-	// 使用 bytes.Buffer 将内容写入内存
-	var buf bytes.Buffer
-	if err1 := printer.Fprint(&buf, fileSet1, node); err1 != nil {
-		return fmt.Errorf("error printing AST to buffer: %w", err1)
-	}
-	formattedCode, err := format.Source(buf.Bytes())
+	formattedCode, err := g.parseFile(in.path, func(tf *token.FileSet, node *ast.File) {
+		g.addDynamicInitFunction(tf, node, fields)
+	})
 	if err != nil {
-		return fmt.Errorf("格式化代码时出错: %w", err)
+		return err
 	}
 	f := g.fileObjects[in.path]
 	f.registerContent = string(formattedCode)
@@ -357,7 +348,6 @@ func (g *genI) addDynamicInitFunction(fileSet1 *token.FileSet, f *ast.File, fiel
 	}
 	var stmts []ast.Stmt
 	{
-		// 定义变量 mongoInit 并初始化为 "@mongoInit"
 		mongoVar := &ast.AssignStmt{
 			Lhs: []ast.Expr{
 				&ast.Ident{Name: "_"}, // 变量名
@@ -372,7 +362,6 @@ func (g *genI) addDynamicInitFunction(fileSet1 *token.FileSet, f *ast.File, fiel
 		}
 		stmts = append(stmts, mongoVar)
 	}
-	// 动态生成 reflect2.Register2 调用
 	for _, field := range fields {
 		stmt := &ast.ExprStmt{
 			X: &ast.CallExpr{
@@ -390,11 +379,7 @@ func (g *genI) addDynamicInitFunction(fileSet1 *token.FileSet, f *ast.File, fiel
 		}
 		stmts = append(stmts, stmt)
 	}
-
-	// 检查是否已有 init 方法
 	_, initFuncExists := g.checkInit(f)
-
-	// 如果没有找到 init 方法，则创建新的 init 方法
 	if !initFuncExists {
 		initFunc := &ast.FuncDecl{
 			Name: ast.NewIdent("init"), // init 方法的名称
@@ -414,7 +399,6 @@ func (g *genI) checkInit(f *ast.File) (int, bool) {
 	for j, decl := range f.Decls {
 		funcDecl, ok := decl.(*ast.FuncDecl)
 		if ok && funcDecl.Name.Name == "init" {
-			// 遍历 init 函数的 Body，检查是否有 mongoInit 变量
 			for _, stmt := range funcDecl.Body.List {
 				if assignStmt, ok := stmt.(*ast.AssignStmt); ok {
 					for i, _ := range assignStmt.Lhs {
@@ -435,33 +419,119 @@ func (g *genI) checkInit(f *ast.File) (int, bool) {
 	return 0, false
 }
 
-func (g *genI) prepareContent(in fileObject) error {
+func (g *genI) prepareContent(in fileObject, define tagx.Service) error {
 	if in.objects == nil || len(in.objects) == 0 {
 		return nil
 	}
-	fileSet1 := token.NewFileSet()
-	node, err := parser.ParseFile(fileSet1, in.path, nil, parser.AllErrors|parser.ParseComments)
+	formattedCode, err := g.parseFile(in.path, func(tf *token.FileSet, node *ast.File) {
+		variables := in.variables
+		// 遍历文件声明
+		for i, decl := range node.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok || genDecl.Tok != token.VAR {
+				continue
+			}
+			if genDecl.Doc == nil {
+				continue
+			}
+			contains := strings.Contains(genDecl.Doc.List[0].Text, commentLabel)
+			if !contains {
+				continue
+			}
+			// 遍历变量声明
+			for j, spec := range genDecl.Specs {
+				valueSpec, ok1 := spec.(*ast.ValueSpec)
+				if !ok1 {
+					continue
+				}
+				variable1, ok2 := variables[valueSpec.Names[0].Name]
+				if !ok2 {
+					continue
+				}
+				fields := define.Register(variable1.source.types).Export()
+				fields2 := map[string]string{}
+				err := copier.Copy(&fields2, &fields)
+				if err != nil {
+					logrus.Fatal(err)
+					return
+				}
+				lit, ok2 := valueSpec.Values[0].(*ast.CompositeLit)
+				if !ok2 {
+					continue
+				}
+				structType1, ok3 := lit.Type.(*ast.StructType)
+				if !ok3 {
+					continue
+				}
+				{
+					for k, field1 := range structType1.Fields.List {
+						_, ok4 := fields[field1.Names[0].Name]
+						if !ok4 {
+							continue
+						}
+						field1.Type = ast.NewIdent("string")
+						structType1.Fields.List[k] = field1
+						delete(fields, field1.Names[0].Name)
+					}
+					for k, _ := range fields {
+						newField := &ast.Field{
+							Names: []*ast.Ident{ast.NewIdent(k)},
+							Type:  ast.NewIdent("string"),
+						}
+						structType1.Fields.List = append(structType1.Fields.List, newField)
+					}
+				}
+				{
+					for _, elt1 := range lit.Elts {
+						elt2, ok := elt1.(*ast.KeyValueExpr)
+						if !ok {
+							continue
+						}
+						key1, ok := elt2.Key.(*ast.Ident)
+						if !ok {
+							continue
+						}
+						_, ok = fields2[key1.Name]
+						if ok {
+							delete(fields2, key1.Name)
+						}
+					}
+					for k, v := range fields2 {
+						keyValue := &ast.KeyValueExpr{
+							Key:   ast.NewIdent(k),
+							Value: ast.NewIdent(fmt.Sprintf(`"%s"`, v)),
+						}
+						if lit.Elts == nil {
+							lit.Elts = []ast.Expr{}
+						}
+						lit.Elts = append(lit.Elts, keyValue)
+					}
+				}
+				{
+					{
+						comment := &ast.Comment{
+							Text: variable1.comment,
+						}
+						valueSpec.Doc = &ast.CommentGroup{
+							List: []*ast.Comment{comment},
+						}
+					}
+					lit.Type = structType1
+					valueSpec.Values[0] = lit
+					genDecl.Specs[j] = valueSpec
+					node.Decls[i] = genDecl
+				}
+			}
+		}
+	})
 	if err != nil {
 		return err
-	}
-	// 遍历 AST 并打印每个节点的位置信息
-	g.addFields(node, in.variables)
-	// 使用 bytes.Buffer 将内容写入内存
-	var buf bytes.Buffer
-	if err1 := printer.Fprint(&buf, fileSet1, node); err1 != nil {
-		return fmt.Errorf("error printing AST to buffer: %w", err1)
-	}
-	formattedCode, err := format.Source(buf.Bytes())
-	if err != nil {
-		return fmt.Errorf("格式化代码时出错: %w", err)
 	}
 	{
 		formattedCode, err = g.prepareComment(formattedCode, in)
 		if err != nil {
 			return err
 		}
-	}
-	{
 		formattedCode, err = g.deleteInit(formattedCode)
 		if err != nil {
 			return err
@@ -473,159 +543,87 @@ func (g *genI) prepareContent(in fileObject) error {
 	return nil
 }
 
-func (g *genI) checkPosition(fileSet1 *token.FileSet, node ast.Node, in *fileObject) {
-	// 遍历 AST 并打印每个节点的位置信息
-	ast.Inspect(node, func(n ast.Node) bool {
-		genDecl, ok := n.(*ast.GenDecl)
-		if ok && genDecl.Tok == token.VAR {
-			for _, spec := range genDecl.Specs {
-				isSource := false
-				valueSpec, ok1 := spec.(*ast.ValueSpec)
-				if !ok1 {
-					continue
-				}
-				variable1, ok2 := in.variables[valueSpec.Names[0].Name]
-				if !ok2 {
-					continue
-				}
-				for _, val := range valueSpec.Values {
-					compositeLit1, ok2 := val.(*ast.CompositeLit)
-					if !ok2 {
-						continue
-					}
-					type1 := compositeLit1.Type
-					structType1, ok3 := type1.(*ast.StructType)
-					if !ok3 {
-						continue
-					}
-					for _, field := range structType1.Fields.List {
-						for _, name1 := range field.Names {
-							if name1.Name == sourceKey {
-								isSource = true
+func (g *genI) prepareComment(b []byte, in fileObject) ([]byte, error) {
+	return g.parse(b, func(tf *token.FileSet, node *ast.File) {
+		{
+			ast.Inspect(node, func(n ast.Node) bool {
+				genDecl, ok := n.(*ast.GenDecl)
+				if ok && genDecl.Tok == token.VAR {
+					for _, spec := range genDecl.Specs {
+						isSource := false
+						valueSpec, ok1 := spec.(*ast.ValueSpec)
+						if !ok1 {
+							continue
+						}
+						variable1, ok2 := in.variables[valueSpec.Names[0].Name]
+						if !ok2 {
+							continue
+						}
+						for _, val := range valueSpec.Values {
+							compositeLit1, ok2 := val.(*ast.CompositeLit)
+							if !ok2 {
+								continue
+							}
+							type1 := compositeLit1.Type
+							structType1, ok3 := type1.(*ast.StructType)
+							if !ok3 {
+								continue
+							}
+							for _, field := range structType1.Fields.List {
+								for _, name1 := range field.Names {
+									if name1.Name == sourceKey {
+										isSource = true
+									}
+								}
 							}
 						}
+						if !isSource {
+							continue
+						}
+						variable1.codePos = tf.Position(genDecl.Pos())
+						in.variables[valueSpec.Names[0].Name] = variable1
 					}
 				}
-				if !isSource {
+				return true
+			})
+		}
+		{
+			variables := in.variables
+			file := tf.File(node.Pos()) // 获取文件对象
+			for k, comment := range node.Comments {
+				contains := strings.Contains(comment.List[0].Text, commentLabel)
+				if !contains {
 					continue
 				}
-				variable1.codePos = fileSet1.Position(genDecl.Pos())
-				in.variables[valueSpec.Names[0].Name] = variable1
+				for _, v := range variables {
+					if v.commentIndex != k {
+						continue
+					}
+					// 使用 FileSet 的 PositionFor 方法来获取某一行的起始位置
+					pos := file.LineStart(v.codePos.Line - 1) // 获取第 `line` 行的起始位置 (Pos)
+					comment.List[0].Slash = pos
+					node.Comments[k] = comment
+				}
 			}
 		}
-		return true
 	})
 }
 
-func (g *genI) addFields(f *ast.File, variables map[string]variable) {
-	// 遍历文件声明
-	for i, decl := range f.Decls {
-		genDecl, ok := decl.(*ast.GenDecl)
-		if !ok || genDecl.Tok != token.VAR {
-			continue
-		}
-		if genDecl.Doc == nil {
-			continue
-		}
-		contains := strings.Contains(genDecl.Doc.List[0].Text, commentLabel)
-		if !contains {
-			continue
-		}
-		// 遍历变量声明
-		for j, spec := range genDecl.Specs {
-			valueSpec, ok1 := spec.(*ast.ValueSpec)
-			if !ok1 {
-				continue
-			}
-			variable1, ok2 := variables[valueSpec.Names[0].Name]
-			if !ok2 {
-				continue
-			}
-			fields := tagx.Define(variable1.source.types).Export()
-			fields2 := map[string]string{}
-			err := copier.Copy(&fields2, &fields)
-			if err != nil {
-				logrus.Fatal(err)
-				return
-			}
-			lit, ok2 := valueSpec.Values[0].(*ast.CompositeLit)
-			if !ok2 {
-				continue
-			}
-			structType1, ok3 := lit.Type.(*ast.StructType)
-			if !ok3 {
-				continue
-			}
-			{
-				for k, field1 := range structType1.Fields.List {
-					_, ok4 := fields[field1.Names[0].Name]
-					if !ok4 {
-						continue
-					}
-					field1.Type = ast.NewIdent("string")
-					structType1.Fields.List[k] = field1
-					delete(fields, field1.Names[0].Name)
-				}
-				for k, _ := range fields {
-					newField := &ast.Field{
-						Names: []*ast.Ident{ast.NewIdent(k)},
-						Type:  ast.NewIdent("string"),
-					}
-					structType1.Fields.List = append(structType1.Fields.List, newField)
-				}
-			}
-			{
-				for _, elt1 := range lit.Elts {
-					elt2, ok := elt1.(*ast.KeyValueExpr)
-					if !ok {
-						continue
-					}
-					key1, ok := elt2.Key.(*ast.Ident)
-					if !ok {
-						continue
-					}
-					_, ok = fields2[key1.Name]
-					if ok {
-						delete(fields2, key1.Name)
-					}
-				}
-				for k, v := range fields2 {
-					keyValue := &ast.KeyValueExpr{
-						Key:   ast.NewIdent(k),
-						Value: ast.NewIdent(fmt.Sprintf(`"%s"`, v)),
-					}
-					if lit.Elts == nil {
-						lit.Elts = []ast.Expr{}
-					}
-					lit.Elts = append(lit.Elts, keyValue)
-				}
-			}
-			{
-				{
-					comment := &ast.Comment{
-						Text: variable1.comment,
-					}
-					valueSpec.Doc = &ast.CommentGroup{
-						List: []*ast.Comment{comment},
-					}
-				}
-				lit.Type = structType1
-				valueSpec.Values[0] = lit
-				genDecl.Specs[j] = valueSpec
-				f.Decls[i] = genDecl
-			}
-		}
+func (g *genI) parseFile(file string, cb func(tf *token.FileSet, node *ast.File)) ([]byte, error) {
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
 	}
+	return g.parse(b, cb)
 }
 
-func (g *genI) prepareComment(b []byte, in fileObject) ([]byte, error) {
+func (g *genI) parse(b []byte, cb func(tf *token.FileSet, node *ast.File)) ([]byte, error) {
 	fileSet1 := token.NewFileSet()
 	node, err := parser.ParseFile(fileSet1, "", b, parser.AllErrors|parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
-	g.checkPosition(fileSet1, node, &in)
-	g.addComment(fileSet1, node, in.variables)
+	cb(fileSet1, node)
 	// 使用 bytes.Buffer 将内容写入内存
 	var buf bytes.Buffer
 	if err1 := printer.Fprint(&buf, fileSet1, node); err1 != nil {
@@ -639,44 +637,13 @@ func (g *genI) prepareComment(b []byte, in fileObject) ([]byte, error) {
 }
 
 func (g *genI) deleteInit(b []byte) ([]byte, error) {
-	fileSet1 := token.NewFileSet()
-	node, err := parser.ParseFile(fileSet1, "", b, parser.AllErrors|parser.ParseComments)
-	if err != nil {
-		return nil, err
-	}
-	funcIndex, isExisted := g.checkInit(node)
-	if isExisted {
-		node.Decls = append(node.Decls[:funcIndex], node.Decls[funcIndex+1:]...)
-		astutil.DeleteImport(fileSet1, node, reflectImport)
-	}
-	var buf bytes.Buffer
-	if err1 := printer.Fprint(&buf, fileSet1, node); err1 != nil {
-		return nil, fmt.Errorf("error printing AST to buffer: %w", err1)
-	}
-	formattedCode, err := format.Source(buf.Bytes())
-	if err != nil {
-		return nil, fmt.Errorf("格式化代码时出错: %w", err)
-	}
-	return formattedCode, nil
-}
-
-func (g *genI) addComment(fileSet1 *token.FileSet, f *ast.File, variables map[string]variable) {
-	file := fileSet1.File(f.Pos()) // 获取文件对象
-	for k, comment := range f.Comments {
-		contains := strings.Contains(comment.List[0].Text, commentLabel)
-		if !contains {
-			continue
+	return g.parse(b, func(tf *token.FileSet, node *ast.File) {
+		funcIndex, isExisted := g.checkInit(node)
+		if isExisted {
+			node.Decls = append(node.Decls[:funcIndex], node.Decls[funcIndex+1:]...)
+			astutil.DeleteImport(tf, node, reflectImport)
 		}
-		for _, v := range variables {
-			if v.commentIndex != k {
-				continue
-			}
-			// 使用 FileSet 的 PositionFor 方法来获取某一行的起始位置
-			pos := file.LineStart(v.codePos.Line - 1) // 获取第 `line` 行的起始位置 (Pos)
-			comment.List[0].Slash = pos
-			f.Comments[k] = comment
-		}
-	}
+	})
 }
 
 func (g *genI) register() error {
@@ -754,7 +721,6 @@ func (g *genI) getModuleName(v2 tImport) error {
 }
 
 func (g *genI) getCallerFile() error {
-
 	_, file, _, ok := runtime.Caller(2)
 	if !ok {
 		return fmt.Errorf("unable to retrieve caller information")
