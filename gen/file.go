@@ -3,7 +3,6 @@ package gen
 import (
 	"errors"
 	"fmt"
-	"github.com/jinzhu/copier"
 	"github.com/sirupsen/logrus"
 	"github.com/svc0a/mgo/tagx"
 	"github.com/svc0a/reflect2"
@@ -400,12 +399,6 @@ func (fx *fileX) prepareContent() error {
 					continue
 				}
 				fields := fx.define.Register(variable1.source.types).Export()
-				fields2 := map[string]string{}
-				err := copier.Copy(&fields2, &fields)
-				if err != nil {
-					logrus.Fatal(err)
-					return
-				}
 				lit, ok2 := valueSpec.Values[0].(*ast.CompositeLit)
 				if !ok2 {
 					continue
@@ -415,39 +408,28 @@ func (fx *fileX) prepareContent() error {
 					continue
 				}
 				{
-					for k, field1 := range structType1.Fields.List {
+					fields1 := []*ast.Field{}
+					for _, field1 := range structType1.Fields.List {
 						_, ok4 := fields[field1.Names[0].Name]
 						if !ok4 {
+							if field1.Names[0].Name == sourceKey {
+								fields1 = append(fields1, field1)
+							}
 							continue
 						}
-						field1.Type = ast.NewIdent("string")
-						structType1.Fields.List[k] = field1
-						delete(fields, field1.Names[0].Name)
 					}
-					for k, _ := range fields {
+					for k := range fields {
 						newField := &ast.Field{
 							Names: []*ast.Ident{ast.NewIdent(k)},
 							Type:  ast.NewIdent("string"),
 						}
-						structType1.Fields.List = append(structType1.Fields.List, newField)
+						fields1 = append(fields1, newField)
 					}
+					structType1.Fields.List = fields1
 				}
 				{
-					for _, elt1 := range lit.Elts {
-						elt2, ok := elt1.(*ast.KeyValueExpr)
-						if !ok {
-							continue
-						}
-						key1, ok := elt2.Key.(*ast.Ident)
-						if !ok {
-							continue
-						}
-						_, ok = fields2[key1.Name]
-						if ok {
-							delete(fields2, key1.Name)
-						}
-					}
-					for k, v := range fields2 {
+					lit.Elts = []ast.Expr{}
+					for k, v := range fields {
 						keyValue := &ast.KeyValueExpr{
 							Key:   ast.NewIdent(k),
 							Value: ast.NewIdent(fmt.Sprintf(`"%s"`, v)),
