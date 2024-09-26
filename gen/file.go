@@ -18,7 +18,7 @@ import (
 type FileX interface {
 	Export() fileObject
 	Generate() error
-	FileImport() *tImport
+	FileImport() *fileImport
 }
 
 func DefineFile(file string, client tagx.Client) FileX {
@@ -83,7 +83,7 @@ func DefineFile(file string, client tagx.Client) FileX {
 type fileX struct {
 	fileObject
 	node       *ast.File
-	fileImport *tImport
+	fileImport *fileImport
 	comments   map[token.Pos]int
 	client     tagx.Client
 }
@@ -96,7 +96,7 @@ func (fx *fileX) Generate() error {
 	return writeFile(fx.path, fx.content)
 }
 
-func (fx *fileX) FileImport() *tImport {
+func (fx *fileX) FileImport() *fileImport {
 	return fx.fileImport
 }
 
@@ -165,7 +165,7 @@ func (fx *fileX) scan() error {
 															if err2 == nil {
 																obj.types = t.Type1()
 															} else {
-																fx.fileImport = &tImport{
+																fx.fileImport = &fileImport{
 																	dir:      fx.dir,
 																	filePath: fx.path,
 																}
@@ -199,7 +199,7 @@ func (fx *fileX) scan() error {
 															if err2 == nil {
 																obj.types = t.Type1()
 															} else {
-																fx.fileImport = &tImport{
+																fx.fileImport = &fileImport{
 																	dir:      fx.dir,
 																	filePath: fx.path,
 																}

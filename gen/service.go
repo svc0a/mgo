@@ -20,10 +20,6 @@ var sourceKey = "source"
 var commentLabel = "@qlGenerated"
 var reflectImport = "github.com/svc0a/reflect2"
 
-type Service interface {
-	Generate() error
-}
-
 type module struct {
 	name string
 	dir  string
@@ -58,11 +54,15 @@ type object struct {
 	callerName string
 }
 
-type tImport struct {
+type fileImport struct {
 	module   module
 	filePath string
 	dir      string
 	tImport  string
+}
+
+type Service interface {
+	Generate() error
 }
 
 type impl struct {
@@ -70,7 +70,7 @@ type impl struct {
 	dirPath       string
 	files         []string
 	fileObjects   map[string]fileObject
-	xImports      map[string]*tImport
+	xImports      map[string]*fileImport
 	callerContent []byte
 	client        tagx.Client
 }
@@ -89,12 +89,24 @@ func WithPostgre() Option {
 	}
 }
 
+func WithSource(source string) Option {
+	return func(i *impl) {
+		sourceKey = source
+	}
+}
+
+func WithCommentLabel(label string) Option {
+	return func(i *impl) {
+		commentLabel = label
+	}
+}
+
 func Define(dirPath string, options ...Option) Service {
 	i := &impl{
 		dirPath:     dirPath,
 		files:       []string{},
 		fileObjects: map[string]fileObject{},
-		xImports:    map[string]*tImport{},
+		xImports:    map[string]*fileImport{},
 		client:      bsonx.Client(),
 	}
 	for _, o := range options {
