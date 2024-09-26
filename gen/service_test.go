@@ -7,7 +7,7 @@ import (
 )
 
 func TestGen(t *testing.T) {
-	err := Define("../").Generate()
+	err := Define(WithDir("../"), WithPostgre()).Generate()
 	if err != nil {
 		logrus.Error(err)
 		return

@@ -101,9 +101,15 @@ func WithCommentLabel(label string) Option {
 	}
 }
 
-func Define(dirPath string, options ...Option) Service {
+func WithDir(dir string) Option {
+	return func(i *impl) {
+		i.dirPath = dir
+	}
+}
+
+func Define(options ...Option) Service {
 	i := &impl{
-		dirPath:     dirPath,
+		dirPath:     "./",
 		files:       []string{},
 		fileObjects: map[string]fileObject{},
 		xImports:    map[string]*fileImport{},

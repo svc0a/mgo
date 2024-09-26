@@ -1,12 +1,38 @@
-# mgo
+# Purpose of project
 
+the purpose of this project is to generate fields map from struct.
 
-```go
-    tagI1 := Define("../")
-    err := tagI1.Generate()
-    if err != nil {
-        logrus.Error(err)
-        return
-    }
-    fmt.Sprintf("%v", tagI1)
+# Supported database
+
+## mongodb(default)
+
+```
+	err := Define().Generate()
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	logrus.Info("success")
+```
+
+## postgreSQL
+
+```
+	err := Define(WithPostgre()).Generate()
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	logrus.Info("success")
+```
+
+# set dir
+
+```
+	err := Define(WithDir("../")).Generate()
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	logrus.Info("success")
 ```
