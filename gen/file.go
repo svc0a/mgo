@@ -12,6 +12,7 @@ import (
 	"golang.org/x/tools/go/ast/astutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -399,6 +400,11 @@ func (fx *fileX) prepareContent() error {
 					continue
 				}
 				fields := fx.client.Register(variable1.source.types).Export()
+				fieldKeys := []string{}
+				for k := range fields {
+					fieldKeys = append(fieldKeys, k)
+				}
+				sort.Strings(fieldKeys)
 				lit, ok2 := valueSpec.Values[0].(*ast.CompositeLit)
 				if !ok2 {
 					continue
@@ -418,7 +424,7 @@ func (fx *fileX) prepareContent() error {
 							continue
 						}
 					}
-					for k := range fields {
+					for _, k := range fieldKeys {
 						newField := &ast.Field{
 							Names: []*ast.Ident{ast.NewIdent(k)},
 							Type:  ast.NewIdent("string"),
@@ -429,13 +435,10 @@ func (fx *fileX) prepareContent() error {
 				}
 				{
 					lit.Elts = []ast.Expr{}
-					for k, v := range fields {
+					for _, k := range fieldKeys {
 						keyValue := &ast.KeyValueExpr{
 							Key:   ast.NewIdent(k),
-							Value: ast.NewIdent(fmt.Sprintf(`"%s"`, v)),
-						}
-						if lit.Elts == nil {
-							lit.Elts = []ast.Expr{}
+							Value: ast.NewIdent(fmt.Sprintf(`"%s"`, fields[k])),
 						}
 						lit.Elts = append(lit.Elts, keyValue)
 					}

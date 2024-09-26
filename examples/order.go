@@ -17,68 +17,68 @@ type Order2 struct {
 // dsgergergergresdsdfds @qlGenerated
 var orderFields = struct {
 	source    Order
-	ID        string
+	Amount    string
 	CreatedAt string
+	ID        string
 	UpdatedAt string
 	Version   string
-	Amount    string
-}{Version: "version", Amount: "amount", ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt"}
+}{Amount: "amount", CreatedAt: "createdAt", ID: "_id", UpdatedAt: "updatedAt", Version: "version"}
 
 // Entitsegewgwegewgewgwegwegy1Fields @qlGenerated
 var Entity1Fields = struct {
 	source    types.Entity1
+	Amount    string
+	CreatedAt string
+	ID        string
 	UpdatedAt string
 	Version   string
-	Amount    string
-	ID        string
-	CreatedAt string
-}{UpdatedAt: "updatedAt", Version: "version", Amount: "amount", ID: "_id", CreatedAt: "createdAt"}
+}{Amount: "amount", CreatedAt: "createdAt", ID: "_id", UpdatedAt: "updatedAt", Version: "version"}
 
 // Entity1Fsdsefsdfdffffwegewgwgh4h43h3h43h43hields @qlGenerated
 var Entity2Fields = struct {
 	source    types.Entity1
-	Version   string
 	Amount    string
-	ID        string
 	CreatedAt string
+	ID        string
 	UpdatedAt string
-}{ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version", Amount: "amount"}
+	Version   string
+}{Amount: "amount", CreatedAt: "createdAt", ID: "_id", UpdatedAt: "updatedAt", Version: "version"}
 
 // ordesegwegweghwehweeghwegewgewgwesgewgerFields @qlGenerated
 var order2Fields = struct {
 	source    Order
-	ID        string
+	Amount    string
 	CreatedAt string
+	ID        string
 	UpdatedAt string
 	Version   string
-	Amount    string
-}{UpdatedAt: "updatedAt", Version: "version", Amount: "amount", ID: "_id", CreatedAt: "createdAt"}
+}{Amount: "amount", CreatedAt: "createdAt", ID: "_id", UpdatedAt: "updatedAt", Version: "version"}
 
 // orderFfdbdhergefifhfhfhbefjcbcjdksihdields @qlGenerated
 var order3Fields = struct {
 	source    Order
-	ID        string
+	Amount    string
 	CreatedAt string
+	ID        string
 	UpdatedAt string
 	Version   string
-	Amount    string
-}{ID: "_id", CreatedAt: "createdAt", UpdatedAt: "updatedAt", Version: "version", Amount: "amount"}
+}{Amount: "amount", CreatedAt: "createdAt", ID: "_id", UpdatedAt: "updatedAt", Version: "version"}
 
 // orderFfdbdhergefifhfhfhbefjcbcjdksihdields @qlGenerated
 var userFields = struct {
 	source                 User
-	Online                 string
 	Amount                 string
-	UsernameUpdateTimes    string
+	BalanceVersion         string
+	CreatedAt              string
+	ID                     string
+	Online                 string
+	Order_Amount           string
+	Order_Entity_CreatedAt string
 	Order_Entity_ID        string
 	Order_Entity_UpdatedAt string
-	ID                     string
-	UpdatedAt              string
-	Version                string
-	BalanceVersion         string
-	Order_Amount           string
-	CreatedAt              string
-	VipLevel               string
-	Order_Entity_CreatedAt string
 	Order_Entity_Version   string
-}{VipLevel: "vipLevel", Order_Entity_CreatedAt: "order.createdAt", Order_Entity_Version: "order.version", CreatedAt: "createdAt", Online: "online", UsernameUpdateTimes: "userNameUpdateTimes", Order_Entity_ID: "order._id", Order_Entity_UpdatedAt: "order.updatedAt", Amount: "amount", UpdatedAt: "updatedAt", Version: "version", BalanceVersion: "balanceVersion", Order_Amount: "order.amount", ID: "_id"}
+	UpdatedAt              string
+	UsernameUpdateTimes    string
+	Version                string
+	VipLevel               string
+}{Amount: "amount", BalanceVersion: "balanceVersion", CreatedAt: "createdAt", ID: "_id", Online: "online", Order_Amount: "order.amount", Order_Entity_CreatedAt: "order.createdAt", Order_Entity_ID: "order._id", Order_Entity_UpdatedAt: "order.updatedAt", Order_Entity_Version: "order.version", UpdatedAt: "updatedAt", UsernameUpdateTimes: "userNameUpdateTimes", Version: "version", VipLevel: "vipLevel"}

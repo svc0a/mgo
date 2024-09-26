@@ -133,8 +133,8 @@ func Define(dirPath string, options ...Option) Service {
 	for _, filePath := range i.files {
 		fileX1 := DefineFile(filePath, i.client)
 		if fileX1.FileImport() != nil {
-			fileImport := fileX1.FileImport()
-			i.xImports[fileImport.dir] = fileImport
+			fileImport1 := fileX1.FileImport()
+			i.xImports[fileImport1.dir] = fileImport1
 		}
 		i.fileObjects[filePath] = fileX1.Export()
 	}
