@@ -2,7 +2,7 @@ package examples
 
 import "github.com/svc0a/mgo/examples/types"
 
-// User @generated sql keys mapping
+// User @qlGenerated sql keys mapping
 type User struct {
 	types.Entity        `bson:",inline"`
 	BalanceVersion      int64 `json:"balanceVersion" bson:"balanceVersion"`
