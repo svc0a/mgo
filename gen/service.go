@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/svc0a/mgo/tagx"
+	"github.com/svc0a/mgo/tagx/bsonx"
+	"github.com/svc0a/mgo/tagx/pgx"
 	"go/ast"
 	"go/token"
 	"golang.org/x/tools/go/ast/astutil"
@@ -14,11 +16,9 @@ import (
 	"strings"
 )
 
-const (
-	sourceKey     = "source"
-	commentLabel  = "@qlGenerated"
-	reflectImport = "github.com/svc0a/reflect2"
-)
+var sourceKey = "source"
+var commentLabel = "@qlGenerated"
+var reflectImport = "github.com/svc0a/reflect2"
 
 type Service interface {
 	Generate() error
@@ -72,14 +72,33 @@ type impl struct {
 	fileObjects   map[string]fileObject
 	xImports      map[string]*tImport
 	callerContent []byte
+	client        tagx.Client
 }
 
-func Define(dirPath string, define tagx.Service) Service {
+type Option func(*impl)
+
+func WithMongodb() Option {
+	return func(i *impl) {
+		i.client = bsonx.Client()
+	}
+}
+
+func WithPostgre() Option {
+	return func(i *impl) {
+		i.client = pgx.Client()
+	}
+}
+
+func Define(dirPath string, options ...Option) Service {
 	i := &impl{
 		dirPath:     dirPath,
 		files:       []string{},
 		fileObjects: map[string]fileObject{},
 		xImports:    map[string]*tImport{},
+		client:      bsonx.Client(),
+	}
+	for _, o := range options {
+		o(i)
 	}
 	{
 		err := i.getCallerFile()
@@ -100,7 +119,7 @@ func Define(dirPath string, define tagx.Service) Service {
 		}
 	}
 	for _, filePath := range i.files {
-		fileX1 := DefineFile(filePath, define)
+		fileX1 := DefineFile(filePath, i.client)
 		if fileX1.FileImport() != nil {
 			fileImport := fileX1.FileImport()
 			i.xImports[fileImport.dir] = fileImport

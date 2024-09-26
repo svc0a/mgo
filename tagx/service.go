@@ -5,8 +5,8 @@ import (
 	"reflect"
 )
 
-type Service interface {
-	Register(in reflect.Type) Service
-	Register2(in reflect2.Type) Service
+type Client interface {
+	Register(in reflect.Type) Client
+	Register2(in reflect2.Type) Client
 	Export() map[string]string
 }

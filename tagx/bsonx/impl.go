@@ -12,14 +12,14 @@ type impl struct {
 	cache map[string]string
 }
 
-func Define() tagx.Service {
+func Client() tagx.Client {
 	b := &impl{
 		cache: map[string]string{},
 	}
 	return b
 }
 
-func (b *impl) Register(in reflect.Type) tagx.Service {
+func (b *impl) Register(in reflect.Type) tagx.Client {
 	if b.cache == nil {
 		b.cache = map[string]string{}
 	}
@@ -27,7 +27,7 @@ func (b *impl) Register(in reflect.Type) tagx.Service {
 	return b
 }
 
-func (b *impl) Register2(in reflect2.Type) tagx.Service {
+func (b *impl) Register2(in reflect2.Type) tagx.Client {
 	if b.cache == nil {
 		b.cache = map[string]string{}
 	}

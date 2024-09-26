@@ -21,14 +21,14 @@ type FileX interface {
 	FileImport() *tImport
 }
 
-func DefineFile(file string, define tagx.Service) FileX {
+func DefineFile(file string, client tagx.Client) FileX {
 	fx := &fileX{
 		fileObject: fileObject{
 			path:      file,
 			objects:   map[string]object{},
 			variables: map[string]variable{},
 		},
-		define:     define,
+		client:     client,
 		comments:   map[token.Pos]int{},
 		fileImport: nil,
 	}
@@ -85,7 +85,7 @@ type fileX struct {
 	node       *ast.File
 	fileImport *tImport
 	comments   map[token.Pos]int
-	define     tagx.Service
+	client     tagx.Client
 }
 
 func (fx *fileX) Export() fileObject {
@@ -398,7 +398,7 @@ func (fx *fileX) prepareContent() error {
 				if !ok2 {
 					continue
 				}
-				fields := fx.define.Register(variable1.source.types).Export()
+				fields := fx.client.Register(variable1.source.types).Export()
 				lit, ok2 := valueSpec.Values[0].(*ast.CompositeLit)
 				if !ok2 {
 					continue
