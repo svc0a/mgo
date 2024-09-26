@@ -19,7 +19,15 @@ func Define() tagx.Service {
 	return b
 }
 
-func (b *impl) Register(in reflect2.Type) tagx.Service {
+func (b *impl) Register(in reflect.Type) tagx.Service {
+	if b.cache == nil {
+		b.cache = map[string]string{}
+	}
+	b.register(in, "", "")
+	return b
+}
+
+func (b *impl) Register2(in reflect2.Type) tagx.Service {
 	if b.cache == nil {
 		b.cache = map[string]string{}
 	}

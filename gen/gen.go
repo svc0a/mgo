@@ -18,6 +18,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 )
@@ -59,7 +60,7 @@ type object struct {
 	path       string
 	pkg        string
 	name       string
-	types      reflect2.Type
+	types      reflect.Type
 	fields     map[string]string
 	samePkg    bool // same package
 	fullName   string
@@ -243,7 +244,7 @@ func (g *genI) scanFile(filePath1 string) error {
 														}
 														t, err2 := reflect2.TypeByName(obj.fullName)
 														if err2 == nil {
-															obj.types = t
+															obj.types = t.Type1()
 														} else {
 															g.xImports[dir] = tImport{
 																dir:      dir,
@@ -277,7 +278,7 @@ func (g *genI) scanFile(filePath1 string) error {
 														}
 														t, err2 := reflect2.TypeByName(obj.fullName)
 														if err2 == nil {
-															obj.types = t
+															obj.types = t.Type1()
 														} else {
 															g.xImports[dir] = tImport{
 																dir:      dir,
