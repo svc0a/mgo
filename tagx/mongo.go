@@ -1,25 +1,24 @@
-package bsonx
+package tagx
 
 import (
 	"fmt"
-	"github.com/svc0a/mgo/tagx"
 	"github.com/svc0a/reflect2"
 	"reflect"
 	"strings"
 )
 
-type impl struct {
+type mongo struct {
 	cache map[string]string
 }
 
-func Client() tagx.Client {
-	b := &impl{
+func Mongo() Client {
+	b := &mongo{
 		cache: map[string]string{},
 	}
 	return b
 }
 
-func (b *impl) Register(in reflect.Type) tagx.Client {
+func (b *mongo) Register(in reflect.Type) Client {
 	if b.cache == nil {
 		b.cache = map[string]string{}
 	}
@@ -27,7 +26,7 @@ func (b *impl) Register(in reflect.Type) tagx.Client {
 	return b
 }
 
-func (b *impl) Register2(in reflect2.Type) tagx.Client {
+func (b *mongo) Register2(in reflect2.Type) Client {
 	if b.cache == nil {
 		b.cache = map[string]string{}
 	}
@@ -35,7 +34,7 @@ func (b *impl) Register2(in reflect2.Type) tagx.Client {
 	return b
 }
 
-func (b *impl) register(objType reflect.Type, kPrefix, vPrefix string) {
+func (b *mongo) register(objType reflect.Type, kPrefix, vPrefix string) {
 	for i := 0; i < objType.NumField(); i++ {
 		k := objType.Field(i).Name
 		v := b.getTagByStructField(objType.Field(i))
@@ -52,7 +51,7 @@ func (b *impl) register(objType reflect.Type, kPrefix, vPrefix string) {
 	}
 }
 
-func (b *impl) getTagByStructField(structField reflect.StructField) string {
+func (b *mongo) getTagByStructField(structField reflect.StructField) string {
 	bsonTag1 := structField.Tag.Get("bson")
 	if bsonTag1 == "" {
 		return structField.Name
@@ -67,7 +66,7 @@ func (b *impl) getTagByStructField(structField reflect.StructField) string {
 	return strings.Split(bsonTag1, ",")[0]
 }
 
-func (b *impl) Export() map[string]string {
+func (b *mongo) Export() map[string]string {
 	for k, v := range b.cache {
 		if v == "" {
 			delete(b.cache, k)

@@ -1,25 +1,24 @@
-package pgx
+package tagx
 
 import (
 	"fmt"
-	"github.com/svc0a/mgo/tagx"
 	"github.com/svc0a/reflect2"
 	"reflect"
 	"strings"
 )
 
-type impl struct {
+type postgre struct {
 	cache map[string]string
 }
 
-func Client() tagx.Client {
-	b := &impl{
+func Postgre() Client {
+	b := &postgre{
 		cache: map[string]string{},
 	}
 	return b
 }
 
-func (b *impl) Register(in reflect.Type) tagx.Client {
+func (b *postgre) Register(in reflect.Type) Client {
 	if b.cache == nil {
 		b.cache = map[string]string{}
 	}
@@ -27,7 +26,7 @@ func (b *impl) Register(in reflect.Type) tagx.Client {
 	return b
 }
 
-func (b *impl) Register2(in reflect2.Type) tagx.Client {
+func (b *postgre) Register2(in reflect2.Type) Client {
 	if b.cache == nil {
 		b.cache = map[string]string{}
 	}
@@ -35,7 +34,7 @@ func (b *impl) Register2(in reflect2.Type) tagx.Client {
 	return b
 }
 
-func (b *impl) register(objType reflect.Type, kPrefix, vPrefix string) {
+func (b *postgre) register(objType reflect.Type, kPrefix, vPrefix string) {
 	for i := 0; i < objType.NumField(); i++ {
 		field := objType.Field(i)
 		k := field.Name
@@ -74,7 +73,7 @@ func (b *impl) register(objType reflect.Type, kPrefix, vPrefix string) {
 	}
 }
 
-func (b *impl) getTagByStructField(structField reflect.StructField) string {
+func (b *postgre) getTagByStructField(structField reflect.StructField) string {
 	// 获取 gorm 标签
 	tag1 := structField.Tag.Get("gorm")
 
@@ -102,7 +101,7 @@ func (b *impl) getTagByStructField(structField reflect.StructField) string {
 }
 
 // 判断字段是否为 embedded 或者带 embeddedPrefix 标签
-func (b *impl) isEmbedded(structField reflect.StructField) (bool, string) {
+func (b *postgre) isEmbedded(structField reflect.StructField) (bool, string) {
 	tag1 := structField.Tag.Get("gorm")
 
 	// 检查是否包含 embedded 或 embeddedPrefix 标签
@@ -120,7 +119,7 @@ func (b *impl) isEmbedded(structField reflect.StructField) (bool, string) {
 	return false, ""
 }
 
-func (b *impl) Export() map[string]string {
+func (b *postgre) Export() map[string]string {
 	for k, v := range b.cache {
 		if v == "" {
 			delete(b.cache, k)

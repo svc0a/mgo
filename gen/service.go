@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"github.com/sirupsen/logrus"
 	"github.com/svc0a/mgo/tagx"
-	"github.com/svc0a/mgo/tagx/bsonx"
-	"github.com/svc0a/mgo/tagx/pgx"
 	"go/ast"
 	"go/token"
 	"golang.org/x/tools/go/ast/astutil"
@@ -79,13 +77,13 @@ type Option func(*impl)
 
 func WithMongodb() Option {
 	return func(i *impl) {
-		i.client = bsonx.Client()
+		i.client = tagx.Mongo()
 	}
 }
 
 func WithPostgre() Option {
 	return func(i *impl) {
-		i.client = pgx.Client()
+		i.client = tagx.Postgre()
 	}
 }
 
@@ -113,7 +111,7 @@ func Define(options ...Option) Service {
 		files:       []string{},
 		fileObjects: map[string]fileObject{},
 		xImports:    map[string]*fileImport{},
-		client:      bsonx.Client(),
+		client:      tagx.Mongo(),
 	}
 	for _, o := range options {
 		o(i)
