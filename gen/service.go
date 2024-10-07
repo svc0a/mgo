@@ -3,6 +3,7 @@ package gen
 import (
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/svc0a/mgo/filex"
 	"github.com/svc0a/mgo/tagx"
 	"go/ast"
 	"go/token"
@@ -177,7 +178,7 @@ func (svc *impl) scanDir() error {
 
 func (svc *impl) register() error {
 	{
-		err := writeFile(svc.callerFile, svc.callerContent)
+		err := filex.RewriteFile(svc.callerFile, svc.callerContent)
 		if err != nil {
 			return err
 		}
@@ -186,7 +187,7 @@ func (svc *impl) register() error {
 		if f.objects == nil || len(f.objects) == 0 || f.registerContent == nil {
 			continue
 		}
-		err := writeFile(f.path, f.registerContent)
+		err := filex.RewriteFile(f.path, f.registerContent)
 		if err != nil {
 			return err
 		}
@@ -199,7 +200,7 @@ func (svc *impl) Generate() error {
 		if f.objects == nil || len(f.objects) == 0 || f.content == nil {
 			continue
 		}
-		err := writeFile(f.path, f.content)
+		err := filex.RewriteFile(f.path, f.content)
 		if err != nil {
 			return err
 		}
@@ -221,7 +222,7 @@ func (svc *impl) appendImports() error {
 	for _, tImport1 := range svc.xImports {
 		importPaths = append(importPaths, tImport1.tImport)
 	}
-	b, err := parseFile(svc.callerFile, func(fileSet1 *token.FileSet, node *ast.File) {
+	b, err := filex.ParseFile(svc.callerFile, func(fileSet1 *token.FileSet, node *ast.File) {
 		for _, decl := range node.Decls {
 			decl1, ok := decl.(*ast.GenDecl)
 			if !ok {

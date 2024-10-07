@@ -9,4 +9,6 @@ type Client interface {
 	Register(in reflect.Type) Client
 	Register2(in reflect2.Type) Client
 	Export() map[string]string
+	Format(value string) string
+	GetTag(tag string) string
 }

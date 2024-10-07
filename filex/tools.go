@@ -1,4 +1,4 @@
-package gen
+package filex
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"os"
 )
 
-func writeFile(filename string, content []byte) error {
+func RewriteFile(filename string, content []byte) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -24,15 +24,15 @@ func writeFile(filename string, content []byte) error {
 	return nil
 }
 
-func parseFile(file string, cb func(tf *token.FileSet, node *ast.File)) ([]byte, error) {
+func ParseFile(file string, cb func(tf *token.FileSet, node *ast.File)) ([]byte, error) {
 	b, err := os.ReadFile(file)
 	if err != nil {
 		return nil, err
 	}
-	return parse(b, cb)
+	return ParseByte(b, cb)
 }
 
-func parse(b []byte, cb func(tf *token.FileSet, node *ast.File)) ([]byte, error) {
+func ParseByte(b []byte, cb func(tf *token.FileSet, node *ast.File)) ([]byte, error) {
 	fileSet1 := token.NewFileSet()
 	node, err := parser.ParseFile(fileSet1, "", b, parser.AllErrors|parser.ParseComments)
 	if err != nil {

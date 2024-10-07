@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"github.com/svc0a/mgo/filex"
 	"github.com/svc0a/mgo/tagx"
 	"github.com/svc0a/reflect2"
 	"go/ast"
@@ -94,7 +95,7 @@ func (fx *fileX) Export() fileObject {
 }
 
 func (fx *fileX) Generate() error {
-	return writeFile(fx.path, fx.content)
+	return filex.RewriteFile(fx.path, fx.content)
 }
 
 func (fx *fileX) FileImport() *fileImport {
@@ -106,7 +107,7 @@ func (fx *fileX) scan() error {
 		dir := filepath.Dir(fx.path)
 		fx.dir = dir
 	}
-	b, err := parseFile(fx.path, func(tf *token.FileSet, node *ast.File) {
+	b, err := filex.ParseFile(fx.path, func(tf *token.FileSet, node *ast.File) {
 		fx.node = node
 		{
 			pkgName := fx.node.Name.Name
@@ -274,7 +275,7 @@ func (fx *fileX) prepareRegisterContent() error {
 	for _, obj := range fx.objects {
 		fields = append(fields, obj.callerName)
 	}
-	formattedCode, err := parse(fx.content, func(tf *token.FileSet, node *ast.File) {
+	formattedCode, err := filex.ParseByte(fx.content, func(tf *token.FileSet, node *ast.File) {
 		fx.addDynamicInitFunction(tf, node, fields)
 	})
 	if err != nil {
@@ -374,7 +375,7 @@ func (fx *fileX) prepareContent() error {
 	if fx.objects == nil || len(fx.objects) == 0 {
 		return nil
 	}
-	formattedCode, err := parse(fx.content, func(tf *token.FileSet, node *ast.File) {
+	formattedCode, err := filex.ParseByte(fx.content, func(tf *token.FileSet, node *ast.File) {
 		variables := fx.variables
 		// 遍历文件声明
 		for i, decl := range node.Decls {
@@ -468,7 +469,7 @@ func (fx *fileX) prepareContent() error {
 }
 
 func (fx *fileX) prepareComment() error {
-	content, err := parse(fx.content, func(tf *token.FileSet, node *ast.File) {
+	content, err := filex.ParseByte(fx.content, func(tf *token.FileSet, node *ast.File) {
 		{
 			ast.Inspect(node, func(n ast.Node) bool {
 				genDecl, ok := n.(*ast.GenDecl)
@@ -539,7 +540,7 @@ func (fx *fileX) prepareComment() error {
 }
 
 func (fx *fileX) deleteInit() error {
-	content, err := parse(fx.content, func(tf *token.FileSet, node *ast.File) {
+	content, err := filex.ParseByte(fx.content, func(tf *token.FileSet, node *ast.File) {
 		funcIndex, isExisted := fx.checkInit(node)
 		if isExisted {
 			node.Decls = append(node.Decls[:funcIndex], node.Decls[funcIndex+1:]...)

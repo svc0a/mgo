@@ -74,3 +74,14 @@ func (b *mongo) Export() map[string]string {
 	}
 	return b.cache
 }
+
+func (b *mongo) Format(value string) string {
+	if value == "_id" {
+		return value
+	}
+	return ToLowerCase(value)
+}
+
+func (b *mongo) GetTag(tag string) string {
+	return getTagValue(tag, "bson")
+}

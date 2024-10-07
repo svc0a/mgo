@@ -127,3 +127,11 @@ func (b *postgre) Export() map[string]string {
 	}
 	return b.cache
 }
+
+func (b *postgre) Format(value string) string {
+	return ToLowerCase(value)
+}
+
+func (b *postgre) GetTag(tag string) string {
+	return getTagValue(tag, "gorm")
+}

@@ -5,7 +5,7 @@ import "github.com/svc0a/mgo/examples/types"
 // User @qlGenerated sql keys mapping
 type User struct {
 	types.Entity        `bson:",inline"`
-	BalanceVersion      int64 `json:"balanceVersion" bson:"balanceVersion"`
+	BalanceVersion      int64 `json:"balanceVersion" bson:"BalanceVersion"`
 	UsernameUpdateTimes int   `json:"userNameUpdateTimes" bson:"userNameUpdateTimes"`
 	Online              bool  `json:"online" bson:"online"`
 	VipLevel            int   `json:"vipLevel" bson:"vipLevel"`
